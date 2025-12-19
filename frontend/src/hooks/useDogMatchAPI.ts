@@ -11,7 +11,7 @@ export const useDogMatchAPI = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getRecommendation = useCallback(async (preferences: UserPreferences): Promise<RecommendationResult | null> => {
+  const getRecommendation = useCallback(async (preferences: UserPreferences, topK: number = 5): Promise<RecommendationResult | null> => {
     setLoading(true);
     setError(null);
 
@@ -21,7 +21,7 @@ export const useDogMatchAPI = () => {
       
       // Faz requisição para API
       const [apiResponse, breeds] = await Promise.all([
-        dogMatchAPI.getRecommendation(apiPreferences),
+        dogMatchAPI.getRecommendation(apiPreferences, topK),
         dogMatchAPI.getBreeds()
       ]);
 

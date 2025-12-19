@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Heart, Share2, Sparkles, Loader2, Brain } from "lucide-react";
+import { ArrowLeft, Heart, Share2, Sparkles, Loader2, Brain, AlertTriangle } from "lucide-react";
 import { UserPreferences } from "@/types/dogmatch";
 import { RecommendationResult } from "@/types/dogmatch";
 import { useDogMatchAPI } from "@/hooks/useDogMatchAPI";
 import Header from "@/components/Header";
 import BreedImage from "@/components/BreedImage";
 import { getBreedNamePT } from "@/lib/breedNames";
-import { translateSize, translateShedding, translateHealthRisk, translateBreedGroup, translateChildrenCompatibility } from "@/lib/fieldTranslations";
 import { toast } from "sonner";
 
 export default function Results() {
@@ -51,8 +50,8 @@ export default function Results() {
       // Criar link para compartilhar os resultados
       const currentUrl = window.location.href;
       const shareData = {
-        title: "DogMatch - Encontrei minha raça ideal!",
-        text: `Descobri que a raça ideal para mim é: ${result?.breed.name || 'Raça recomendada'}! Teste você também no DogMatch.`,
+        title: "DogMatch - Resultado de recomendação",
+        text: `Recomendação principal: ${result?.breed.name || 'Raça recomendada'}. Veja detalhes e ajuste suas preferências no DogMatch.`,
         url: currentUrl
       };
 
@@ -77,7 +76,7 @@ export default function Results() {
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-lg">Analisando suas preferências...</p>
-          <p className="text-sm text-muted-foreground">Encontrando a raça perfeita para você</p>
+          <p className="text-sm text-muted-foreground">Gerando recomendação baseada nos dados fornecidos</p>
         </div>
       </div>
     );
@@ -121,7 +120,7 @@ export default function Results() {
             <div className="flex items-center gap-3 mb-6">
               <div className="px-4 py-2 bg-gradient-accent rounded-full flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
-                <span className="font-semibold">Seu Match Perfeito</span>
+                <span className="font-semibold">Recomendação principal</span>
               </div>
             </div>
 
@@ -148,10 +147,16 @@ export default function Results() {
                     </span>
                   </div>
                   <Progress value={result.compatibilityScore} className="h-3" />
+                  {result.compatibilityScore < 50 && (
+                    <div className="mt-2 flex items-start gap-2 text-sm text-amber-700">
+                      <AlertTriangle className="h-4 w-4 mt-0.5" />
+                      <span>Recomendação com baixa confiança; considere ajustar suas preferências.</span>
+                    </div>
+                  )}
                 </div>
 
                 <p className="text-lg text-muted-foreground mb-6">
-                  {result.breed.description}
+                  {result.breed.description || "Descrição não disponível para esta raça no momento."}
                 </p>
 
                 <div className="space-y-3 mb-8">
@@ -186,6 +191,24 @@ export default function Results() {
             </div>
           </Card>
 
+          {/* Top-k predições */}
+          {result.topPredictions && result.topPredictions.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-4">Top recomendações do modelo</h2>
+              <div className="grid md:grid-cols-3 gap-4">
+                {result.topPredictions.map((pred, index) => (
+                  <Card key={`top-${pred.name}-${index}`} className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">#{index + 1}</p>
+                      <p className="font-semibold">{getBreedNamePT(pred.name)}</p>
+                    </div>
+                    <Badge variant="secondary">{pred.score}%</Badge>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Similar Breeds */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-6">Raças Similares</h2>
@@ -207,7 +230,7 @@ export default function Results() {
                         <Badge variant="secondary">{similarityScore}%</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {breed.description}
+                        {breed.description || "Detalhes adicionais não disponíveis."}
                       </p>
                     </div>
                   </Card>
@@ -225,8 +248,8 @@ export default function Results() {
                   <h2 className="text-2xl font-bold">Como Funciona o Machine Learning?</h2>
                 </div>
                 <p className="text-muted-foreground">
-                  Entenda detalhadamente como suas preferências são processadas e transformadas 
-                  na recomendação perfeita. Descubra o processo completo de Machine Learning por trás do DogMatch.
+                  Entenda como suas preferências são processadas e transformadas 
+                  em recomendações. Veja o processo completo de Machine Learning por trás do DogMatch.
                 </p>
               </div>
               <Link to="/ml-explanation">

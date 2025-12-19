@@ -9,14 +9,16 @@ export const sizeTranslations: Record<string, string> = {
   'Medium': 'Médio',
   'Large': 'Grande',
   'Giant': 'Gigante',
-  'Toy': 'Toy'
+  'Toy': 'Toy',
+  'Unknown': 'Desconhecido'
 };
 
 // Tradução de níveis de queda de pelo
 export const sheddingTranslations: Record<string, string> = {
   'Low': 'Baixa',
   'Moderate': 'Moderada',
-  'High': 'Alta'
+  'High': 'Alta',
+  'Unknown': 'Desconhecido'
 };
 
 // Tradução de riscos de saúde
@@ -24,7 +26,8 @@ export const healthRiskTranslations: Record<string, string> = {
   'Low': 'Baixo',
   'Medium': 'Médio',
   'Moderate': 'Moderado',
-  'High': 'Alto'
+  'High': 'Alto',
+  'Unknown': 'Desconhecido'
 };
 
 // Tradução de grupos de raças
@@ -35,7 +38,8 @@ export const breedGroupTranslations: Record<string, string> = {
   'Hound': 'Sabujo',
   'Terrier': 'Terrier',
   'Toy': 'Toy',
-  'Non-Sporting': 'Não Esportivo'
+  'Non-Sporting': 'Não Esportivo',
+  'Unknown': 'Desconhecido'
 };
 
 // Tradução de compatibilidade com crianças

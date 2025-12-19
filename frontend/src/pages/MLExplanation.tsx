@@ -118,7 +118,7 @@ export default function MLExplanation() {
     features: "11 características originais + 5 features derivadas = 16 features totais",
     models: "Sistema híbrido: KNN_Advanced + NearestNeighbors",
     preprocessing: "RobustScaler + LabelEncoder + Feature Engineering",
-    accuracy: "Top-5 Accuracy: 10% | Top-10 Accuracy: 20%"
+    accuracy: "Top-1 ≈ 0% (158 classes) | Top-5 ≈ 10% | Top-10 ≈ 20%"
   };
 
   return (
@@ -144,8 +144,8 @@ export default function MLExplanation() {
                 </h1>
               </div>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Entenda detalhadamente como suas preferências são processadas e transformadas 
-                na recomendação perfeita de raça de cão.
+                Entenda como suas preferências são processadas e transformadas em recomendações,
+                quais métricas usamos (top-k) e por que resultados de baixa confiança podem ocorrer.
               </p>
             </div>
           </div>
@@ -172,6 +172,33 @@ export default function MLExplanation() {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pré-processamento</p>
                 <p className="font-semibold">{technicalDetails.preprocessing}</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Métricas e limitações */}
+          <Card className="p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4">Métricas e limitações</h2>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5" />
+                <span>Top-1 accuracy ≈ 0% para 158 classes; Top-5 ≈ 10%; Top-10 ≈ 20%.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5" />
+                <span>Top-k é a métrica principal porque, com muitas classes e poucos exemplos por raça, a chance de acerto exato (top-1) é baixa.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5" />
+                <span>Scores representam similaridade relativa, não probabilidade calibrada; use-os como ordenação, não como certeza.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5" />
+                <span>Limitações: dataset pequeno e desbalanceado; algumas raças têm poucos exemplos, o que reduz confiança.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5" />
+                <span>Implicação: recomendações podem ter baixa confiança; ajuste preferências e avalie as alternativas do top-k.</span>
               </div>
             </div>
           </Card>

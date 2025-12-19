@@ -1,7 +1,7 @@
-export type DogSize = "Small" | "Medium" | "Large" | "Giant";
-export type SheddingLevel = "Low" | "Moderate" | "High";
-export type HealthRisk = "Low" | "Medium" | "High";
-export type BreedGroup = "Herding" | "Sporting" | "Working" | "Hound" | "Terrier" | "Toy" | "Non-Sporting";
+export type DogSize = "Small" | "Medium" | "Large" | "Giant" | "Unknown";
+export type SheddingLevel = "Low" | "Moderate" | "High" | "Unknown";
+export type HealthRisk = "Low" | "Medium" | "High" | "Moderate" | "Unknown";
+export type BreedGroup = "Herding" | "Sporting" | "Working" | "Hound" | "Terrier" | "Toy" | "Non-Sporting" | "Unknown";
 
 export interface UserPreferences {
   size: DogSize;
@@ -21,20 +21,20 @@ export interface DogBreed {
   id: string;
   name: string;
   size: DogSize;
-  exerciseNeeds: number;
-  goodWithChildren: boolean;
-  intelligence: number;
-  trainingDifficulty: number;
+  exerciseNeeds: number | null;
+  goodWithChildren: boolean | null;
+  intelligence: number | null;
+  trainingDifficulty: number | null;
   shedding: SheddingLevel;
   healthRisk: HealthRisk;
   breedGroup: BreedGroup;
-  friendliness: number;
-  lifeExpectancy: number;
-  averageWeight: number;
-  description: string;
+  friendliness: number | null;
+  lifeExpectancy: number | null;
+  averageWeight: number | null;
+  description: string | null;
   temperament: string[];
   care: string[];
-  history: string;
+  history: string | null;
   images: string[];
 }
 
@@ -42,6 +42,10 @@ export interface RecommendationResult {
   breed: DogBreed;
   compatibilityScore: number;
   matchReasons: string[];
+  topPredictions: {
+    name: string;
+    score: number;
+  }[];
   similarBreeds: {
     breed: DogBreed;
     similarityScore: number;
@@ -72,9 +76,13 @@ export interface ApiRecommendationResponse {
   similar_breeds: Array<{
     breed: string;
     rank: number;
-    score: number;
+    similarity: number;
+    group?: string;
   }>;
-  user_profile: {
-    [key: string]: any;
-  };
+  user_profile: Record<string, number | string | null | undefined>;
+  predictions_grouped?: Array<{
+    group: string;
+    score: number;
+    rank: number;
+  }>;
 }

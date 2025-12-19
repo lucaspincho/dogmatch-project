@@ -3,7 +3,10 @@
  * Conecta o frontend com o backend Flask
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
+import type { RecommendationResult, UserPreferences, DogSize, SheddingLevel, HealthRisk, BreedGroup } from "@/types/dogmatch";
+
+const env = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env;
+const API_BASE_URL = env?.VITE_API_URL || "http://127.0.0.1:5000";
 
 export interface ApiUserPreferences {
   Size: string;
@@ -29,25 +32,39 @@ export interface ApiRecommendationResponse {
     breed: string;
     rank: number;
     similarity: number;  // Campo correto da API
+    group?: string;
   }>;
-  user_profile: {
-    [key: string]: any;
+  user_profile: Record<string, number | string | null | undefined>;
+  predictions_grouped?: Array<{
+    group: string;
+    score: number;
+    rank: number;
+  }>;
+}
+
+export interface ApiFeaturesResponse {
+  features: {
+    categorical: string[];
+    numeric: string[];
+    total: number;
   };
+  categorical_values: Record<string, string[]>;
+  api_version: string;
 }
 
 export interface ApiBreed {
   name: string;
-  size: string;
-  exercise_needs: number;
-  good_with_children: boolean;
-  intelligence: number;
-  training_difficulty: number;
-  shedding: string;
-  health_risk: string;
-  breed_group: string;
-  friendliness: number;
-  life_expectancy: number;
-  average_weight: number;
+  size?: string;
+  exercise_needs?: number;
+  good_with_children?: boolean;
+  intelligence?: number;
+  training_difficulty?: number;
+  shedding?: string;
+  health_risk?: string;
+  breed_group?: string;
+  friendliness?: number;
+  life_expectancy?: number;
+  average_weight?: number;
   description?: string;
   temperament?: string[];
   care?: string[];
@@ -82,9 +99,9 @@ class DogMatchAPI {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
-    console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+    console.log(`API Request: ${options.method || 'GET'} ${url}`);
     if (options.body) {
-      console.log('📤 Request Body:', options.body);
+      console.log('Request Body:', options.body);
     }
     
     const defaultOptions: RequestInit = {
@@ -96,16 +113,16 @@ class DogMatchAPI {
 
     const response = await fetch(url, { ...defaultOptions, ...options });
 
-    console.log(`📥 API Response: ${response.status} ${response.statusText}`);
+    console.log(`API Response: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ API Error:', errorText);
+      console.error('API Error:', errorText);
       throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('✅ API Data:', data);
+    console.log('API Data:', data);
     return data;
   }
 
@@ -127,243 +144,20 @@ class DogMatchAPI {
    * Obtém lista de todas as raças
    */
   async getBreeds(): Promise<ApiBreed[]> {
-    const response = await this.request<{api_version: string, breeds: string[]}>('/api/breeds');
+    const response = await this.request<{api_version: string, breeds: ApiBreed[]}>('/api/breeds');
     
-    // Converter array de strings para array de objetos com dados realistas
-    const breeds: ApiBreed[] = response.breeds.map((breedName) => ({
-      name: breedName,
-      size: this.getBreedSize(breedName),
-      exercise_needs: this.getBreedExercise(breedName),
-      good_with_children: this.getBreedChildFriendly(breedName),
-      intelligence: this.getBreedIntelligence(breedName),
-      training_difficulty: this.getBreedTrainingDifficulty(breedName),
-      shedding: this.getBreedShedding(breedName),
-      health_risk: this.getBreedHealthRisk(breedName),
-      breed_group: this.getBreedGroup(breedName),
-      friendliness: this.getBreedFriendliness(breedName),
-      life_expectancy: this.getBreedLifeExpectancy(breedName),
-      average_weight: this.getBreedWeight(breedName),
-      description: `O ${breedName} é uma raça com características únicas e personalidade marcante.`,
-      temperament: this.getBreedTemperament(breedName),
-      care: this.getBreedCare(breedName),
-      history: `O ${breedName} tem uma história rica e interessante.`,
-      images: this.getBreedImages(breedName)
-    }));
+    const breeds: ApiBreed[] = response.breeds.map((breedMeta) => {
+      const images = breedMeta.images && breedMeta.images.length > 0
+        ? breedMeta.images
+        : this.getBreedImages(breedMeta.name);
+      return {
+        ...breedMeta,
+        images,
+      };
+    });
 
-    console.log('🐕 Breeds carregadas:', breeds.length);
+    console.log('Breeds carregadas:', breeds.length);
     return breeds;
-  }
-
-  // Métodos para gerar dados realistas baseados no nome da raça
-  private getBreedSize(breedName: string): string {
-    const smallBreeds = ['Chihuahua', 'Pomeranian', 'Yorkshire', 'Maltese', 'Shih Tzu', 'Pug', 'Boston Terrier'];
-    const largeBreeds = ['Great Dane', 'Mastiff', 'Saint Bernard', 'Newfoundland', 'Irish Wolfhound', 'Leonberger'];
-    const giantBreeds = ['Great Dane', 'Mastiff', 'Saint Bernard'];
-    
-    if (smallBreeds.some(breed => breedName.includes(breed))) return 'Small';
-    if (giantBreeds.some(breed => breedName.includes(breed))) return 'Giant';
-    if (largeBreeds.some(breed => breedName.includes(breed))) return 'Large';
-    return 'Medium';
-  }
-
-  private getBreedExercise(breedName: string): number {
-    // Dados reais do dataset filtrado
-    const breedExercise: { [key: string]: number } = {
-      'Beagle': 2,
-      'Border Collie': 3,
-      'Bull Terrier': 2,
-      'Chihuahua': 1,
-      'Chow Chow': 1.5,
-      'Cocker Spaniel': 1.5,
-      'Golden Retriever': 2,
-      'Siberian Husky': 2.5,
-      'Labrador Retriever': 2,
-      'Lhasa Apso': 1,
-      'Maltese': 1,
-      'German Shepherd': 2.5,
-      'Miniature Pinscher': 1.5,
-      'Poodle (Standard)': 2,
-      'Pug': 1,
-      'Rottweiler': 2,
-      'Samoyed': 2,
-      'Saint Bernard': 2,
-      'Standard Schnauzer': 2,
-      'Shih Tzu': 1,
-      'Dachshund': 1.5,
-      'West Highland White Terrier': 1.5,
-      'Yorkshire Terrier': 1,
-      'English Bulldog': 1,
-      'French Bulldog': 1
-    };
-    
-    return breedExercise[breedName] || 2;
-  }
-
-  private getBreedChildFriendly(breedName: string): boolean {
-    const childFriendly = ['Golden Retriever', 'Labrador', 'Beagle', 'Collie', 'Newfoundland', 'Saint Bernard'];
-    const notChildFriendly = ['Chihuahua', 'Akita', 'Chow Chow', 'Dalmatian'];
-    
-    if (childFriendly.some(breed => breedName.includes(breed))) return true;
-    if (notChildFriendly.some(breed => breedName.includes(breed))) return false;
-    return Math.random() > 0.3;
-  }
-
-  private getBreedIntelligence(breedName: string): number {
-    const smartBreeds = ['Border Collie', 'Poodle', 'German Shepherd', 'Golden Retriever', 'Doberman'];
-    const averageBreeds = ['Beagle', 'Bulldog', 'Basset Hound', 'Mastiff'];
-    
-    if (smartBreeds.some(breed => breedName.includes(breed))) return 9;
-    if (averageBreeds.some(breed => breedName.includes(breed))) return 5;
-    return 7;
-  }
-
-  private getBreedTrainingDifficulty(breedName: string): number {
-    const easyTrain = ['Golden Retriever', 'Labrador', 'Border Collie', 'Poodle'];
-    const hardTrain = ['Afghan Hound', 'Basset Hound', 'Bulldog', 'Chow Chow'];
-    
-    if (easyTrain.some(breed => breedName.includes(breed))) return 2;
-    if (hardTrain.some(breed => breedName.includes(breed))) return 8;
-    return 5;
-  }
-
-  private getBreedShedding(breedName: string): string {
-    const lowShedding = ['Poodle', 'Bichon Frise', 'Maltese', 'Shih Tzu', 'Yorkshire'];
-    const highShedding = ['German Shepherd', 'Siberian Husky', 'Golden Retriever', 'Labrador'];
-    
-    if (lowShedding.some(breed => breedName.includes(breed))) return 'Low';
-    if (highShedding.some(breed => breedName.includes(breed))) return 'High';
-    return 'Moderate';
-  }
-
-  private getBreedHealthRisk(breedName: string): string {
-    const highRisk = ['Bulldog', 'Pug', 'German Shepherd', 'Golden Retriever'];
-    const lowRisk = ['Australian Cattle Dog', 'Border Collie', 'Siberian Husky'];
-    
-    if (highRisk.some(breed => breedName.includes(breed))) return 'High';
-    if (lowRisk.some(breed => breedName.includes(breed))) return 'Low';
-    return 'Moderate';
-  }
-
-  private getBreedGroup(breedName: string): string {
-    const herding = ['Border Collie', 'Australian Shepherd', 'German Shepherd', 'Collie'];
-    const sporting = ['Golden Retriever', 'Labrador', 'Pointer', 'Spaniel'];
-    const working = ['Saint Bernard', 'Mastiff', 'Great Dane', 'Boxer'];
-    const hound = ['Beagle', 'Basset Hound', 'Afghan Hound', 'Greyhound'];
-    const terrier = ['Jack Russell', 'Yorkshire', 'Boston Terrier', 'Bull Terrier'];
-    const toy = ['Chihuahua', 'Pomeranian', 'Maltese', 'Shih Tzu'];
-    
-    if (herding.some(breed => breedName.includes(breed))) return 'Herding';
-    if (sporting.some(breed => breedName.includes(breed))) return 'Sporting';
-    if (working.some(breed => breedName.includes(breed))) return 'Working';
-    if (hound.some(breed => breedName.includes(breed))) return 'Hound';
-    if (terrier.some(breed => breedName.includes(breed))) return 'Terrier';
-    if (toy.some(breed => breedName.includes(breed))) return 'Toy';
-    return 'Non-Sporting';
-  }
-
-  private getBreedFriendliness(breedName: string): number {
-    const veryFriendly = ['Golden Retriever', 'Labrador', 'Beagle', 'Collie'];
-    const reserved = ['Akita', 'Chow Chow', 'Shar Pei', 'Basenji'];
-    
-    if (veryFriendly.some(breed => breedName.includes(breed))) return 9;
-    if (reserved.some(breed => breedName.includes(breed))) return 4;
-    return 7;
-  }
-
-  private getBreedLifeExpectancy(breedName: string): number {
-    // Dados reais do dataset filtrado
-    const breedLifeExpectancy: { [key: string]: number } = {
-      'Beagle': 13,
-      'Border Collie': 13,
-      'Bull Terrier': 12,
-      'Chihuahua': 16,
-      'Chow Chow': 10,
-      'Cocker Spaniel': 13,
-      'Golden Retriever': 11,
-      'Siberian Husky': 12,
-      'Labrador Retriever': 11,
-      'Lhasa Apso': 13,
-      'Maltese': 13,
-      'German Shepherd': 11,
-      'Miniature Pinscher': 13,
-      'Poodle (Standard)': 12,
-      'Pug': 12,
-      'Rottweiler': 9,
-      'Samoyed': 12,
-      'Saint Bernard': 8,
-      'Standard Schnauzer': 15,
-      'Shih Tzu': 14,
-      'Dachshund': 14,
-      'West Highland White Terrier': 13,
-      'Yorkshire Terrier': 13,
-      'English Bulldog': 9,
-      'French Bulldog': 11
-    };
-    
-    return breedLifeExpectancy[breedName] || 12;
-  }
-
-  private getBreedWeight(breedName: string): number {
-    // Dados reais do dataset filtrado
-    const breedWeights: { [key: string]: number } = {
-      'Beagle': 10,
-      'Border Collie': 17,
-      'Bull Terrier': 27,
-      'Chihuahua': 2,
-      'Chow Chow': 26,
-      'Cocker Spaniel': 12,
-      'Golden Retriever': 29,
-      'Siberian Husky': 21,
-      'Labrador Retriever': 30,
-      'Lhasa Apso': 6,
-      'Maltese': 2.5,
-      'German Shepherd': 31,
-      'Miniature Pinscher': 4,
-      'Poodle (Standard)': 22,
-      'Pug': 7,
-      'Rottweiler': 40,
-      'Samoyed': 21,
-      'Saint Bernard': 68,
-      'Standard Schnauzer': 14,
-      'Shih Tzu': 4,
-      'Dachshund': 10,
-      'West Highland White Terrier': 7,
-      'Yorkshire Terrier': 2.5,
-      'English Bulldog': 20,
-      'French Bulldog': 11
-    };
-    
-    return breedWeights[breedName] || 25;
-  }
-
-  private getBreedTemperament(breedName: string): string[] {
-    const activeBreeds = ['Border Collie', 'Australian Shepherd', 'Jack Russell'];
-    const calmBreeds = ['Bulldog', 'Basset Hound', 'Saint Bernard'];
-    const protectiveBreeds = ['German Shepherd', 'Rottweiler', 'Doberman'];
-    
-    if (activeBreeds.some(breed => breedName.includes(breed))) {
-      return ['Energético', 'Inteligente', 'Ativo'];
-    }
-    if (calmBreeds.some(breed => breedName.includes(breed))) {
-      return ['Calmo', 'Gentil', 'Paciente'];
-    }
-    if (protectiveBreeds.some(breed => breedName.includes(breed))) {
-      return ['Protetor', 'Leal', 'Corajoso'];
-    }
-    return ['Amigável', 'Inteligente', 'Leal'];
-  }
-
-  private getBreedCare(breedName: string): string[] {
-    const highMaintenance = ['Poodle', 'Afghan Hound', 'Yorkshire'];
-    const lowMaintenance = ['Beagle', 'Bulldog', 'Basset Hound'];
-    
-    if (highMaintenance.some(breed => breedName.includes(breed))) {
-      return ['Escovação diária', 'Banho semanal', 'Corte regular'];
-    }
-    if (lowMaintenance.some(breed => breedName.includes(breed))) {
-      return ['Escovação semanal', 'Banho mensal', 'Cuidados básicos'];
-    }
-    return ['Exercício regular', 'Escovação semanal', 'Treinamento básico'];
   }
 
   private getBreedImages(breedName: string): string[] {
@@ -408,15 +202,16 @@ class DogMatchAPI {
   /**
    * Obtém informações das features
    */
-  async getFeatures(): Promise<any> {
-    return this.request('/api/features');
+  async getFeatures(): Promise<ApiFeaturesResponse> {
+    return this.request<ApiFeaturesResponse>('/api/features');
   }
 
   /**
    * Envia preferências e recebe recomendação
    */
-  async getRecommendation(preferences: ApiUserPreferences): Promise<ApiRecommendationResponse> {
-    return this.request<ApiRecommendationResponse>('/api/recommend', {
+  async getRecommendation(preferences: ApiUserPreferences, topK: number = 5): Promise<ApiRecommendationResponse> {
+    const query = topK ? `?top_k=${topK}` : '';
+    return this.request<ApiRecommendationResponse>(`/api/recommend${query}`, {
       method: 'POST',
       body: JSON.stringify(preferences),
     });
@@ -425,8 +220,8 @@ class DogMatchAPI {
   /**
    * Converte preferências do frontend para formato da API
    */
-  convertPreferencesToApi(frontendPrefs: any): ApiUserPreferences {
-    console.log('🔄 Convertendo preferências do frontend:', frontendPrefs);
+  convertPreferencesToApi(frontendPrefs: UserPreferences): ApiUserPreferences {
+    console.log('Convertendo preferências do frontend:', frontendPrefs);
     
     // Mapear valores do frontend para valores aceitos pela API
     const mapHealthRisk = (risk: string) => {
@@ -461,134 +256,292 @@ class DogMatchAPI {
       "Average Weight (kg)": frontendPrefs.averageWeight,
     };
 
-    console.log('✅ Preferências convertidas para API:', apiPrefs);
+    console.log('Preferências convertidas para API:', apiPrefs);
     return apiPrefs;
   }
 
   /**
    * Converte resposta da API para formato do frontend
    */
-  convertApiResponseToFrontend(apiResponse: ApiRecommendationResponse, breeds: ApiBreed[]): any {
-    // Pega a primeira predição (melhor match)
-    const bestPrediction = apiResponse.predictions[0];
+  convertApiResponseToFrontend(apiResponse: ApiRecommendationResponse, breeds: ApiBreed[]): RecommendationResult {
+    const bestPrediction = apiResponse.predictions?.[0];
     
     if (!bestPrediction) {
       throw new Error('Nenhuma predição encontrada na resposta da API');
     }
 
-    // Encontra a raça recomendada
-    const recommendedBreed = breeds.find(b => 
-      b.name.toLowerCase() === bestPrediction.breed.toLowerCase()
-    );
+    const recommendedBreed = this.findBreedOrFallback(bestPrediction.breed || '', breeds);
 
-    if (!recommendedBreed) {
-      throw new Error(`Raça recomendada não encontrada: ${bestPrediction.breed}`);
-    }
-
-    // Encontra raças similares (excluindo a raça principal)
-    const similarBreeds = apiResponse.similar_breeds
-      .filter(similar => 
-        similar.breed.toLowerCase() !== bestPrediction.breed.toLowerCase()
-      )
+    const bestBreedNameStr = this.safeToString(bestPrediction?.breed);
+    
+    const similarBreeds = (apiResponse.similar_breeds || [])
+      .filter(similar => {
+        const similarBreedName = this.safeToString(similar?.breed);
+        if (!similarBreedName || !bestBreedNameStr) return false;
+        return !this.safeBreedNameCompare(similarBreedName, bestBreedNameStr);
+      })
       .map(similar => {
-        const breed = breeds.find(b => 
-          b.name.toLowerCase() === similar.breed.toLowerCase()
-        );
+        const breedName = this.safeToString(similar?.breed);
+        const apiBreed = this.findBreedOrFallback(breedName, breeds);
+        const breed = this.convertApiBreedToDogBreed(apiBreed);
         return {
-          breed: breed || { name: similar.breed } as ApiBreed,
-          similarityScore: Math.round(similar.similarity * 100)  // Usar campo 'similarity' em vez de 'score'
+          breed,
+          similarityScore: this.clampPercentage((similar?.similarity ?? 0) * 100)
         };
       });
 
-    // Gera razões de match baseadas no perfil do usuário
-    const matchReasons = this.generateMatchReasons(apiResponse.user_profile, recommendedBreed);
+    const similarityForBest = apiResponse.similar_breeds?.find((item) => {
+      const itemBreed = this.safeToString(item?.breed);
+      return this.safeBreedNameCompare(itemBreed, bestBreedNameStr);
+    });
 
-    // Calcular score realista baseado no score de similaridade
-    const realisticScore = this.calculateRealisticScore(apiResponse, recommendedBreed);
+    // Compatibilidade: prioriza score de grupo; senão, usa similaridade reescalada com teto
+    const topGroupScore = apiResponse.predictions_grouped?.[0]?.score ?? null;
+    const sims = (apiResponse.similar_breeds || []).map((s) => s?.similarity ?? 0).filter((v) => Number.isFinite(v));
+    const bestSimilarity = sims.length > 0 ? Math.max(...sims) : similarityForBest?.similarity ?? 0;
+    const meanTopK =
+      sims.length > 0 ? sims.slice(0, Math.min(5, sims.length)).reduce((a, b) => a + b, 0) / Math.min(5, sims.length) : 0;
 
-    return {
-      breed: {
-        id: recommendedBreed.name.toLowerCase().replace(/\s+/g, '-'),
-        name: recommendedBreed.name,
-        size: recommendedBreed.size,
-        exerciseNeeds: recommendedBreed.exercise_needs,
-        goodWithChildren: recommendedBreed.good_with_children,
-        intelligence: recommendedBreed.intelligence,
-        trainingDifficulty: recommendedBreed.training_difficulty,
-        shedding: recommendedBreed.shedding,
-        healthRisk: recommendedBreed.health_risk,
-        breedGroup: recommendedBreed.breed_group,
-        friendliness: recommendedBreed.friendliness,
-        lifeExpectancy: recommendedBreed.life_expectancy,
-        averageWeight: recommendedBreed.average_weight,
-        description: recommendedBreed.description || `O ${recommendedBreed.name} é uma raça ${recommendedBreed.size.toLowerCase()} com excelentes características.`,
-        temperament: recommendedBreed.temperament || ['Amigável', 'Inteligente', 'Leal'],
-        care: recommendedBreed.care || ['Exercício regular', 'Escovação semanal', 'Treinamento básico'],
-        history: recommendedBreed.history || `História do ${recommendedBreed.name}.`,
-        images: recommendedBreed.images || this.getBreedImages(recommendedBreed.name)
-      },
-      compatibilityScore: realisticScore,
-      matchReasons,
-      similarBreeds
-    };
-  }
-
-  /**
-   * Calcula um score realista baseado no score de similaridade
-   */
-  private calculateRealisticScore(apiResponse: ApiRecommendationResponse, breed: ApiBreed): number {
-    // Pega o score de similaridade da primeira raça similar (que é a mesma da predição)
-    const firstSimilar = apiResponse.similar_breeds[0];
-    
-    if (firstSimilar && firstSimilar.breed.toLowerCase() === breed.name.toLowerCase()) {
-      // Usa o score de similaridade como base, mas ajusta para ser mais realista
-      const baseScore = firstSimilar.similarity;
-      
-      // Ajusta o score para ser mais realista (entre 60% e 95%)
-      const adjustedScore = Math.max(0.6, Math.min(0.95, baseScore + 0.2));
-      
-      return Math.round(adjustedScore * 100);
+    let compatibilityScore: number;
+    if (typeof topGroupScore === "number") {
+      // Teto para evitar 100%: cap em 95
+      compatibilityScore = this.clampPercentage(topGroupScore * 100);
+      compatibilityScore = Math.min(compatibilityScore, 95);
+    } else {
+      const adjusted = meanTopK > 0 ? bestSimilarity / (meanTopK + 1e-6) : bestSimilarity;
+      compatibilityScore = this.clampPercentage(adjusted * 100);
+      compatibilityScore = Math.min(compatibilityScore, 95);
     }
+
+    const matchReasons = this.generateMatchReasons(apiResponse.user_profile, recommendedBreed);
+    const topPredictions = (apiResponse.predictions || [])
+      .filter(pred => {
+        const breedName = this.safeToString(pred?.breed).trim();
+        return breedName.length > 0;
+      })
+      .map((pred) => {
+        const breedName = this.safeToString(pred?.breed).trim();
+        return {
+          name: breedName || 'Raça Desconhecida',
+          score: this.clampPercentage((pred?.score ?? 0) * 100)
+        };
+      });
+
+    const breed = this.convertApiBreedToDogBreed(recommendedBreed);
     
-    // Fallback: usa o score da predição, mas ajusta para ser mais realista
-    const predictionScore = apiResponse.predictions[0]?.score || 1.0;
-    const realisticScore = Math.max(0.6, Math.min(0.95, predictionScore * 0.8));
-    
-    return Math.round(realisticScore * 100);
+    return {
+      breed,
+      compatibilityScore,
+      matchReasons,
+      similarBreeds,
+      topPredictions
+    };
   }
 
   /**
    * Gera razões de compatibilidade baseadas no perfil do usuário
    */
-  private generateMatchReasons(userProfile: any, breed: ApiBreed): string[] {
+  private generateMatchReasons(
+    userProfile: Record<string, number | string | null | undefined>,
+    breed: ApiBreed
+  ): string[] {
     const reasons: string[] = [];
 
-    // Analisa compatibilidade baseada no perfil
-    if (userProfile.size_preference === breed.size) {
-      reasons.push(`Tamanho ${breed.size.toLowerCase()} ideal para você`);
+    const userSizePref = this.normalizeSizePreference(userProfile?.size_preference);
+    const breedSize = this.normalizeSizeLabel(breed.size);
+    if (userSizePref && breedSize && userSizePref === breedSize) {
+      reasons.push(`Porte ${breedSize.toLowerCase()} alinhado à preferência informada`);
     }
 
-    if (breed.good_with_children) {
-      reasons.push("Excelente com crianças");
+    if (typeof userProfile?.family_friendly === 'number' && userProfile.family_friendly >= 0.6) {
+      reasons.push("Compatibilidade familiar favorável segundo o perfil informado");
     }
 
-    if (breed.intelligence >= 8) {
-      reasons.push("Alta inteligência e facilidade de treino");
+    if (
+      typeof userProfile?.energy_level === 'number' &&
+      typeof breed.exercise_needs === 'number'
+    ) {
+      if (userProfile.energy_level >= 1.5 && breed.exercise_needs >= 2) {
+        reasons.push("Nível de energia adequado para rotinas ativas");
+      } else if (userProfile.energy_level < 1.5 && breed.exercise_needs <= 1.5) {
+        reasons.push("Baixa demanda de exercício combinando com rotina informada");
+      }
     }
 
-    if (breed.shedding === "Low") {
-      reasons.push("Pouca queda de pelo");
+    if (
+      typeof userProfile?.maintenance_level === 'number' &&
+      breed.shedding &&
+      typeof breed.shedding === 'string' &&
+      userProfile.maintenance_level <= 1.5 &&
+      breed.shedding.toLowerCase() === "low"
+    ) {
+      reasons.push("Baixa manutenção compatível com preferência informada");
     }
 
-    if (breed.friendliness >= 9) {
-      reasons.push("Extremamente amigável e sociável");
+    if (reasons.length === 0) {
+      reasons.push("Recomendação baseada nas características fornecidas");
     }
 
-    if (breed.exercise_needs <= 2) {
-      reasons.push("Necessidades de exercício moderadas");
-    }
+    return reasons.slice(0, 3);
+  }
 
-    return reasons.slice(0, 4);
+  private findBreedOrFallback(breedName: string, breeds: ApiBreed[]): ApiBreed {
+    const normalizedName = this.safeToString(breedName).trim();
+    if (!normalizedName) {
+      return {
+        name: 'Raça Desconhecida',
+        size: 'Medium',
+        breed_group: 'Unknown',
+        images: this.getBreedImages('Beagle')
+      };
+    }
+    const breed = breeds.find(
+      (b) => {
+        const breedNameStr = this.safeToString(b?.name).trim();
+        return breedNameStr && this.safeBreedNameCompare(breedNameStr, normalizedName);
+      }
+    );
+    if (breed) {
+      const normalizedSize = this.normalizeSizeLabel(breed.size) || 'Medium';
+      return { ...breed, size: normalizedSize };
+    }
+    return {
+      name: breedName,
+      size: 'Medium',
+      breed_group: 'Unknown',
+      images: this.getBreedImages(breedName)
+    };
+  }
+
+  private normalizeSizeLabel(size?: string): string | null {
+    if (!size) return null;
+    const normalized = size.trim().toLowerCase();
+    if (normalized.includes('small')) return 'Small';
+    if (normalized.includes('medium')) return 'Medium';
+    if (normalized.includes('large')) return 'Large';
+    if (normalized.includes('giant')) return 'Giant';
+    return 'Unknown';
+  }
+
+  private normalizeSizePreference(value: number | string | null | undefined): string | null {
+    if (typeof value === 'number') {
+      if (value < 1.5) return 'Small';
+      if (value < 2.5) return 'Medium';
+      if (value < 3.5) return 'Large';
+      return 'Giant';
+    }
+    if (typeof value === 'string') {
+      return this.normalizeSizeLabel(value);
+    }
+    return null;
+  }
+
+  private clampPercentage(value: number): number {
+    const safe = Number.isFinite(value) ? value : 0;
+    return Math.max(0, Math.min(100, Math.round(safe)));
+  }
+
+  /**
+   * Normaliza um valor para string, garantindo que seja seguro chamar toLowerCase()
+   */
+  private safeToString(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    return String(value);
+  }
+
+  /**
+   * Compara dois nomes de raças de forma segura (case-insensitive)
+   */
+  private safeBreedNameCompare(name1: unknown, name2: unknown): boolean {
+    const str1 = this.safeToString(name1).toLowerCase().trim();
+    const str2 = this.safeToString(name2).toLowerCase().trim();
+    return str1 === str2 && str1.length > 0;
+  }
+
+  /**
+   * Converte string para DogSize de forma segura
+   */
+  private toDogSize(value: string | null | undefined): DogSize {
+    if (!value) return 'Unknown';
+    const normalized = this.safeToString(value).trim();
+    const lower = normalized.toLowerCase();
+    if (lower.includes('small')) return 'Small';
+    if (lower.includes('medium')) return 'Medium';
+    if (lower.includes('large')) return 'Large';
+    if (lower.includes('giant')) return 'Giant';
+    return 'Unknown';
+  }
+
+  /**
+   * Converte string para SheddingLevel de forma segura
+   */
+  private toSheddingLevel(value: string | null | undefined): SheddingLevel {
+    if (!value) return 'Unknown';
+    const normalized = this.safeToString(value).trim();
+    const lower = normalized.toLowerCase();
+    if (lower.includes('low')) return 'Low';
+    if (lower.includes('moderate')) return 'Moderate';
+    if (lower.includes('high')) return 'High';
+    return 'Unknown';
+  }
+
+  /**
+   * Converte string para HealthRisk de forma segura
+   */
+  private toHealthRisk(value: string | null | undefined): HealthRisk {
+    if (!value) return 'Unknown';
+    const normalized = this.safeToString(value).trim();
+    const lower = normalized.toLowerCase();
+    if (lower.includes('low')) return 'Low';
+    if (lower.includes('moderate')) return 'Moderate';
+    if (lower.includes('medium')) return 'Medium';
+    if (lower.includes('high')) return 'High';
+    return 'Unknown';
+  }
+
+  /**
+   * Converte string para BreedGroup de forma segura
+   */
+  private toBreedGroup(value: string | null | undefined): BreedGroup {
+    if (!value) return 'Unknown';
+    const normalized = this.safeToString(value).trim();
+    const lower = normalized.toLowerCase();
+    if (lower.includes('herding')) return 'Herding';
+    if (lower.includes('sporting')) return 'Sporting';
+    if (lower.includes('working')) return 'Working';
+    if (lower.includes('hound')) return 'Hound';
+    if (lower.includes('terrier')) return 'Terrier';
+    if (lower.includes('toy')) return 'Toy';
+    if (lower.includes('non-sporting') || lower.includes('nonsporting')) return 'Non-Sporting';
+    return 'Unknown';
+  }
+
+  /**
+   * Converte ApiBreed para DogBreed
+   */
+  private convertApiBreedToDogBreed(apiBreed: ApiBreed): import("@/types/dogmatch").DogBreed {
+    const breedName = this.safeToString(apiBreed.name).trim() || 'Raça Desconhecida';
+    return {
+      id: breedName.toLowerCase().replace(/\s+/g, '-'),
+      name: breedName,
+      size: this.toDogSize(apiBreed.size),
+      exerciseNeeds: apiBreed.exercise_needs ?? null,
+      goodWithChildren: apiBreed.good_with_children ?? null,
+      intelligence: apiBreed.intelligence ?? null,
+      trainingDifficulty: apiBreed.training_difficulty ?? null,
+      shedding: this.toSheddingLevel(apiBreed.shedding),
+      healthRisk: this.toHealthRisk(apiBreed.health_risk),
+      breedGroup: this.toBreedGroup(apiBreed.breed_group),
+      friendliness: apiBreed.friendliness ?? null,
+      lifeExpectancy: apiBreed.life_expectancy ?? null,
+      averageWeight: apiBreed.average_weight ?? null,
+      description: apiBreed.description ?? null,
+      temperament: apiBreed.temperament || [],
+      care: apiBreed.care || [],
+      history: apiBreed.history ?? null,
+      images: apiBreed.images || this.getBreedImages(breedName)
+    };
   }
 }
 
