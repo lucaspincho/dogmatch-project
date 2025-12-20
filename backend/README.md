@@ -13,6 +13,17 @@ API Flask para o sistema híbrido de recomendação de raças de cães DogMatch.
 - **Error handling** completo
 - **Deploy** no Vercel (gratuito)
 
+## Limitações e Métricas
+
+- Dataset atual: `ml/data/Dog Breads Around The World.csv` (~159 raças, 1 amostra/raça). Alvo atual = `Type` (agrupado).
+- Validação k-fold estratificada por Type (min_count=2, n_splits=2):
+  - Fold1: Top-1=0.8125, Top-3=0.9750, Top-5=0.9875, Top-10=1.0000
+  - Fold2: Top-1=0.7722, Top-3=0.9494, Top-5=0.9620, Top-10=1.0000
+  - Médias: Top-1≈0.7923, Top-3≈0.9622, Top-5≈0.9748, Top-10≈1.0000
+- Racional: por raça há 1 amostra; agrupar por Type permite validação útil. Porte segue como feature e é usado na similaridade/ranking de raças.
+- Scores são de similaridade (0–1), não probabilidades calibradas.
+- Limitações: min_count por Type ainda é 2; por raça continua 1 (classificação de raça pura não generaliza). Metadados dependem de curadoria e podem faltar imagens. Warnings de versão do scikit-learn podem surgir se pickle ≠ runtime.
+
 ##  Estrutura
 
 ```
@@ -32,7 +43,7 @@ backend/
 └── README.md                # Este arquivo
 ```
 
-## 🛠️ Instalação
+## Instalação
 
 ### 1. Instalar dependências
 ```bash
@@ -67,7 +78,7 @@ curl -X POST http://localhost:5000/api/recommend \
   }'
 ```
 
-## 📊 Endpoints
+## Endpoints
 
 ### `GET /`
 Página inicial da API com informações básicas.
@@ -92,18 +103,23 @@ Página inicial da API com informações básicas.
 }
 ```
 
-**Response:**
+**Response (valores ilustrativos):**
 ```json
 {
-  "predictions": [{"breed": "Australian Shepherd", "score": 1.0}],
+  "predictions": [
+    {"breed": "Australian Shepherd", "score": 0.18, "rank": 1},
+    {"breed": "Briard", "score": 0.16, "rank": 2},
+    {"breed": "Australian Cattle Dog", "score": 0.14, "rank": 3}
+  ],
   "similar_breeds": [
-    {"breed": "Briard", "similarity": 0.421, "rank": 1},
-    {"breed": "Australian Cattle Dog", "similarity": 0.377, "rank": 2}
+    {"breed": "Briard", "similarity": 0.62, "rank": 1},
+    {"breed": "Australian Cattle Dog", "similarity": 0.55, "rank": 2}
   ],
   "user_profile": {
-    "family_friendly": -3.77,
-    "energy_level": 0.13,
-    "maintenance_level": -0.73
+    "family_friendly": 0.4,
+    "energy_level": 1.2,
+    "maintenance_level": 0.3,
+    "size_preference": 2.0
   },
   "api_version": "1.0.0",
   "timestamp": "2025-01-03T12:00:00"
@@ -145,7 +161,7 @@ echo "web: gunicorn app:app" > Procfile
 git push heroku main
 ```
 
-## 🔧 Desenvolvimento
+## Desenvolvimento
 
 ### Executar em modo debug
 ```bash

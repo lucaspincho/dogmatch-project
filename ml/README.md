@@ -48,7 +48,7 @@ python dogmatch_predictor.py
 
 ```
 ml/
-├── 📁 models/                     # Modelos treinados
+├── models/                      # Modelos treinados
 │   ├── dogmatch_optimized_model.pkl      # Modelo principal (KNN_Advanced)
 │   ├── dogmatch_similarity_model.pkl     # Modelo de similaridade
 │   ├── robust_scaler.pkl                 # Normalizador robusto
@@ -56,12 +56,12 @@ ml/
 │   ├── feature_info_optimized.pkl        # Metadados das features
 │   ├── X_enhanced.pkl                    # Dados processados
 │   └── y_processed.pkl                   # Labels processados
-├── 📁 data/                      # Dataset
+├── data/                        # Dataset
 │   └── Dog Breads Around The World.csv   # Dataset original
-├── 📄 DogMatch_ML_Pipeline.ipynb # Notebook principal com pipeline de ML
-├── 📄 dogmatch_predictor.py      # Classe para predições
-├── 📄 requirements.txt           # Dependências Python
-└── 📄 README.md                  # Este arquivo
+├── DogMatch_ML_Pipeline.ipynb   # Notebook principal com pipeline de ML
+├── dogmatch_predictor.py        # Classe para predições
+├── requirements.txt             # Dependências Python
+└── README.md                    # Este arquivo
 ```
 
 ##  Como Usar
@@ -103,9 +103,9 @@ user_preferences = {
 results = predictor.predict(user_preferences)
 
 # Resultado
-print("🎯 Predição Principal:", results['predictions'])
-print("🔍 Raças Similares:", results['similar_breeds'])
-print("📊 Perfil do Usuário:", results['user_profile'])
+print("Predição principal:", results['predictions'])
+print("Raças similares:", results['similar_breeds'])
+print("Perfil do usuário:", results['user_profile'])
 ```
 
 ### 3. Integração com Backend
@@ -168,34 +168,35 @@ def recommend_breeds():
 - **LabelEncoder** para variáveis categóricas
 - **Feature Engineering** com 5 features derivadas
 
-##  Métricas de Avaliação
+##  Métricas e Avaliação
 
-### **Métricas de Recomendação:**
-- **Top-5 Accuracy:** 10% (excelente para 158 classes)
-- **Top-10 Accuracy:** 20% (muito bom para recomendação)
-- **Sistema funciona como Netflix/Amazon** (múltiplas opções)
+- Dataset atual: `ml/data/Dog Breads Around The World.csv` (~159 raças, 1 amostra por raça).
+- Alvo atual: `Type` (agrupamento de classe). Porte continua como feature.
+- Validação k-fold estratificada por `Type` (min_count=2, n_splits=2):
+  - Fold1: Top-1=0.8125, Top-3=0.9750, Top-5=0.9875, Top-10=1.0000
+  - Fold2: Top-1=0.7722, Top-3=0.9494, Top-5=0.9620, Top-10=1.0000
+  - Médias: Top-1≈0.7923, Top-3≈0.9622, Top-5≈0.9748, Top-10≈1.0000
+- Similaridade 0–1 não é probabilidade calibrada; é usada para ranquear raças dentro/entre grupos.
 
-### **Métricas de Classificação:**
-- **F1-Score:** 0.0 (esperado para 158 classes únicas)
-- **Acurácia:** 0.0 (esperado para classificação exata)
+##  Racional do Agrupamento
+
+- Cada raça tem 1 amostra; classificar por raça não generaliza (top-k ~0).
+- Agrupar por `Type` aumenta exemplos por classe e permite validação estratificada com métricas úteis.
+- Porte permanece como feature e é usado na similaridade/ranking para sugerir raças dentro do Type.
+
+##  Limitações
+
+- min_count por `Type` ainda é 2; mais dados por Type tornariam o k-fold mais robusto.
+- Por raça, segue 1 amostra: classificação por raça pura não generaliza; recomendações de raça são via similaridade.
+- Metadados (descrições, imagens, temperament/care) dependem de curadoria; imagens locais cobrem apenas parte das raças.
+- Warnings de scikit-learn podem ocorrer por diferença de versão do pickle; alinhar versão ou regenerar modelos no runtime alvo.
 
 ##  Próximos Passos
 
-1. **Integração com Backend**
-   - Criar API Flask/FastAPI
-   - Deploy no Vercel (gratuito)
-   - Integração com frontend
-
-2. **Melhorias no Modelo**
-   - Coletar feedback dos usuários
-   - Implementar sistema de retreinamento
-   - Adicionar mais features derivadas
-
-3. **Funcionalidades Adicionais**
-   - Filtros por localização
-   - Comparação entre raças
-   - Informações detalhadas sobre cada raça
-   - Sistema de favoritos
+1. **Dados**: coletar mais exemplos por Type/raça; fundir Types raros se necessário.
+2. **Modelo**: opcional testar embeddings + ANN para similaridade; calibrar scores ou usar score de Type na UI para evitar percepção de 100%.
+3. **Metadados**: curar/expandir descrições, imagens e temperament/care.
+4. **Validação**: revalidar assim que houver mais dados; ajustar buckets de porte se o dataset crescer.
 
 ##  Deploy
 
