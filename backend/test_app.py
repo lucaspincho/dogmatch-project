@@ -41,3 +41,4 @@ def test_recommend_missing_field_returns_400():
     assert data is not None
     assert "error" in data
 
+
